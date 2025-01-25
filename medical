@@ -1,0 +1,63 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Step 1: Import the dataset
+df = pd.read_csv('medical_examination.csv')
+
+# Step 2: Calculate BMI and add the 'overweight' column
+df['bmi'] = df['weight'] / ((df['height'] / 100) ** 2)
+df['overweight'] = df['bmi'].apply(lambda x: 1 if x > 25 else 0)
+
+# Step 3: Normalize cholesterol and gluc columns
+df['cholesterol'] = df['cholesterol'].apply(lambda x: 0 if x == 1 else 1)
+df['gluc'] = df['gluc'].apply(lambda x: 0 if x == 1 else 1)
+
+# Step 4: Reshape the data for the categorical plot
+df_cat = pd.melt(df, id_vars=['cardio'], value_vars=['cholesterol', 'gluc', 'smoke', 'alco', 'active', 'overweight'])
+
+# Step 5: Group data by 'cardio' and count occurrences of each category
+df_cat = df_cat.groupby(['cardio', 'variable', 'value']).size().reset_index(name='count')
+
+# Rename 'value' column to 'level' for compatibility with Seaborn's catplot
+df_cat = df_cat.rename(columns={'value': 'level'})
+
+# Step 6: Draw the categorical plot
+def draw_cat_plot():
+    cat_plot = sns.catplot(x="variable", hue="level", col="cardio", data=df_cat, kind="count", height=5)
+    fig = cat_plot.fig
+    return fig
+
+# Step 7: Clean the data for the heatmap
+df_heat = df[
+    (df['ap_lo'] <= df['ap_hi']) & 
+    (df['height'] >= df['height'].quantile(0.025)) & 
+    (df['height'] <= df['height'].quantile(0.975)) & 
+    (df['weight'] >= df['weight'].quantile(0.025)) & 
+    (df['weight'] <= df['weight'].quantile(0.975))
+]
+
+# Step 8: Calculate the correlation matrix
+corr = df_heat.corr()
+
+# Step 9: Create the mask for the upper triangle of the correlation matrix
+mask = np.triu(np.ones(corr.shape), k=1)
+
+# Set up the matplotlib figure
+plt.figure(figsize=(10, 8))
+
+# Step 10: Plot the heatmap
+def draw_heat_map():
+    heat_map = sns.heatmap(corr, mask=mask, annot=True, fmt='.1f', cmap='coolwarm', cbar=True, square=True, linewidths=0.5)
+    return heat_map
+
+# Main execution for testing and visualization
+if __name__ == "__main__":
+    # Draw and save the categorical plot
+    fig_cat = draw_cat_plot()
+    fig_cat.savefig('cat_plot.png')  # Save the cat plot image
+
+    # Draw and display the heatmap
+    draw_heat_map()
+    plt.show()
